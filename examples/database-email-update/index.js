@@ -19,11 +19,19 @@ const { Client } = require("@notionhq/client")
 const dotenv = require("dotenv")
 const sendgridMail = require("@sendgrid/mail")
 
-dotenv.config()
-sendgridMail.setApiKey(process.env.SENDGRID_KEY)
-const notion = new Client({ auth: process.env.NOTION_KEY })
+console.log("노드")
+console.log(process.env.SENDGRID_KEY)
+console.log(process.env.NOTION_KEY)
+console.log(process.env.NOTION_DATABASE_ID)
+console.log(process.env.EMAIL_TO_FIELD)
+console.log(process.env.EMAIL_FROM_FIELD)
 
-const databaseId = process.env.NOTION_DATABASE_ID
+dotenv.config()
+// sendgridMail.setApiKey(process.env.SENDGRID_KEY)
+sendgridMail.setApiKey("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")
+const notion = new Client({ auth: "secret_ds3T5FqW9f1Tjiyd5AO4yF6jmCE28da9p34R6ecARiW" })
+
+const databaseId = "e0cccdea7e6e4fbdb1a504b1ee828f1a"
 
 /**
  * Local map to store task pageId to its last status.
@@ -54,6 +62,9 @@ async function findAndSendEmailsForUpdatedTasks() {
   console.log("\nFetching tasks from Notion DB...")
   const currentTasks = await getTasksFromNotionDatabase()
 
+  // console.log(currentTasks)
+  // console.log(currentTasks[0].status)
+
   // Return any tasks that have had their status updated.
   const updatedTasks = findUpdatedTasks(currentTasks)
   console.log(`Found ${updatedTasks.length} updated tasks.`)
@@ -61,14 +72,19 @@ async function findAndSendEmailsForUpdatedTasks() {
   // For each updated task, update taskPageIdToStatusMap and send an email notification.
   for (const task of updatedTasks) {
     taskPageIdToStatusMap[task.pageId] = task.status
-    await sendUpdateEmailWithSendgrid(task)
+    if (task.status === "Done"){
+      await sendUpdateEmailWithSendgrid(task)
+    }else {
+      console.log("업데이트")
+    }
   }
+
 }
 
 /**
  * Gets tasks from the database.
  *
- * @returns {Promise<Array<{ pageId: string, status: string, title: string }>>}
+ * @returns {Promise<Array<{ pageId: string, status: string, title: string, checkbox : boolean }>>}
  */
 async function getTasksFromNotionDatabase() {
   const pages = []
@@ -96,8 +112,8 @@ async function getTasksFromNotionDatabase() {
       pageId,
       propertyId: statusPropertyId,
     })
-    const status = statusPropertyItem.select
-      ? statusPropertyItem.select.name
+    const status = statusPropertyItem.status
+      ? statusPropertyItem.status.name
       : "No Status"
 
     const titlePropertyId = page.properties["Name"].id
@@ -109,7 +125,21 @@ async function getTasksFromNotionDatabase() {
       .map(propertyItem => propertyItem.title.plain_text)
       .join("")
 
-    tasks.push({ pageId, status, title })
+    const checkboxPropertyId = page.properties["체크박스"].id
+    const checkboxPropertyItem = await getPropertyValue({
+      pageId,
+      propertyId: checkboxPropertyId,
+    })
+    const checkbox = checkboxPropertyItem.checkbox
+
+    const emailPropertyId = page.properties["이메일"].id
+    const emailPropertyItem = await getPropertyValue({
+      pageId,
+      propertyId: emailPropertyId,
+    })
+    const email = emailPropertyItem.email
+      
+    tasks.push({ pageId, status, title, checkbox, email })
   }
 
   return tasks
@@ -119,12 +149,13 @@ async function getTasksFromNotionDatabase() {
  * Compares task to most recent version of task stored in taskPageIdToStatusMap.
  * Returns any tasks that have a different status than their last version.
  *
- * @param {Array<{ pageId: string, status: string, title: string }>} currentTasks
- * @returns {Array<{ pageId: string, status: string, title: string }>}
+ * @param {Array<{ pageId: string, status: string, title: string, checkbox : boolean }>} currentTasks
+ * @returns {Array<{ pageId: string, status: string, title: string, checkbox : boolean  }>}
  */
 function findUpdatedTasks(currentTasks) {
   return currentTasks.filter(currentTask => {
     const previousStatus = getPreviousTaskStatus(currentTask)
+    
     return currentTask.status !== previousStatus
   })
 }
@@ -134,16 +165,18 @@ function findUpdatedTasks(currentTasks) {
  *
  * @param {{ status: string, title: string }} task
  */
-async function sendUpdateEmailWithSendgrid({ title, status }) {
-  const message = `Status of Notion task ("${title}") has been updated to "${status}".`
+async function sendUpdateEmailWithSendgrid({ title, status, email }) {
+  const message = `안녕하세요. ${title} 담당자님 컨택틱입니다. 
+  서비스 만족도 조사 부탁드립니다.
+  https://forms.gle/nTh8Pv4KPxGcU39h8`
   console.log(message)
 
   try {
     // Send an email about this change.
     await sendgridMail.send({
-      to: process.env.EMAIL_TO_FIELD,
-      from: process.env.EMAIL_FROM_FIELD,
-      subject: "Notion Task Status Updated",
+      to: email,
+      from: "jeonghohyeon@kontactic.com",
+      subject: "[컨택틱] 서비스 만족도 조사 부탁드립니다!",
       text: message,
     })
     console.log("Email Sent")
