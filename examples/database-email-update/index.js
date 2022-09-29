@@ -27,11 +27,10 @@ console.log(process.env.EMAIL_TO_FIELD)
 console.log(process.env.EMAIL_FROM_FIELD)
 
 dotenv.config()
-// sendgridMail.setApiKey(process.env.SENDGRID_KEY)
-sendgridMail.setApiKey("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")
-const notion = new Client({ auth: "secret_ds3T5FqW9f1Tjiyd5AO4yF6jmCE28da9p34R6ecARiW" })
+sendgridMail.setApiKey(process.env.SENDGRID_KEY)
+const notion = new Client({ auth: process.env.NOTION_KEY })
 
-const databaseId = "e0cccdea7e6e4fbdb1a504b1ee828f1a"
+const databaseId = process.env.NOTION_DATABASE_ID
 
 /**
  * Local map to store task pageId to its last status.
@@ -167,15 +166,15 @@ function findUpdatedTasks(currentTasks) {
  */
 async function sendUpdateEmailWithSendgrid({ title, status, email }) {
   const message = `안녕하세요. ${title} 담당자님 컨택틱입니다. 
-  서비스 만족도 조사 부탁드립니다.
-  https://forms.gle/nTh8Pv4KPxGcU39h8`
+서비스 만족도 조사 부탁드립니다.
+https://forms.gle/nTh8Pv4KPxGcU39h8`
   console.log(message)
 
   try {
     // Send an email about this change.
     await sendgridMail.send({
       to: email,
-      from: "jeonghohyeon@kontactic.com",
+      from: process.env.EMAIL_FROM_FIELD,
       subject: "[컨택틱] 서비스 만족도 조사 부탁드립니다!",
       text: message,
     })
